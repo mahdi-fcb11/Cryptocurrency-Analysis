@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+    generator:
+      image: crypto:latest
+      networks:
+        - kafka_minio
+      command:
+        - generator
+      environment:
+        - WALLEX_TOPIC=test_wallex
+        - CMP_TOPIC=test_cmp
+        - LOG_LEVEL=DEBUG
+        - BROKER_URL=broker:9092
+
+    processor:
+      image: crypto:latest
+      networks:
+        - kafka_minio
+      command:
+        - processor
+      environment:
+        - WALLEX_TOPIC=test_wallex
+        - CMP_TOPIC=test_cmp
+        - BROKER_URL=broker:9092
+        - MINIO_URL=http://minio:9000
+        - MINIO_ACC_KEY=HMyMkhaRwyPkp33J272M
+        - MINIO_SEC_KEY=wKuajCYUod10Eaqkp6yH2FNCOSJeS8Sl97gmZzfF
+        - DEST_URL=s3a://lake-house/cmp_tmn/
+
+
+networks:
+  kafka_minio:
+    external: true

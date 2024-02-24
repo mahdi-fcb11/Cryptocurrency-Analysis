@@ -1,0 +1,122 @@
+version: '3.8'
+services:
+    broker:
+        image: confluentinc/cp-kafka:7.3.3
+        networks:
+          - kafka_minio
+        container_name: broker
+        restart: always
+        user: root
+        ports:
+          - "9091:9091"
+          - "9092:9092"
+          - "9093:9093"
+          - "29092:29092"
+
+        environment:
+          KAFKA_BROKER_ID: 1
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT,CONTROLLER:PLAINTEXT,CLIENTHOST:PLAINTEXT,UI:PLAINTEXT
+          KAFKA_LISTENERS: INTERNAL://:9092,CLIENT://:9093,CONTROLLER://broker:29193,CLIENTHOST://0.0.0.0:29092
+          KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker:9092,CLIENT://localhost:9093,CLIENTHOST://localhost:29092
+
+
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_JMX_PORT: 9101
+          KAFKA_JMX_HOSTNAME: localhost
+          KAFKA_PROCESS_ROLES: 'broker,controller'
+          KAFKA_NODE_ID: 1
+          KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker:29193'
+
+          KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+          KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+          KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+          KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+        healthcheck:
+              test: "nc -z localhost 9092"
+              interval: 10s
+              timeout: 5s
+              retries: 10
+              start_period: 10s
+        volumes:
+          - ./update_run.sh:/tmp/update_run.sh
+          - /path/docker-data/kraft/:/tmp/kraft-combined-logs/
+        command: "bash -c 'if [ ! -f /tmp/update_run.sh ]; then echo \"ERROR: Did you forget the update_run.sh file that came with this docker-compose.yml file?\" && exit 1 ; else /tmp/update_run.sh && /etc/confluent/docker/run ; fi'"
+
+    kafka-ui:
+      image: provectuslabs/kafka-ui:latest
+      container_name: kafka-ui
+      restart: always
+      networks:
+        - kafka_minio
+      depends_on:
+        broker:
+          condition: service_healthy
+      ports:
+        - '8085:8080'
+      environment:
+        - KAFKA_CLUSTERS_0_NAME= Main
+        - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS= broker:9092
+        - DYNAMIC_CONFIG_ENABLED= true
+
+    minio:
+      image: quay.io/minio/minio:RELEASE.2023-12-23T07-19-11Z
+      container_name: minio
+      command: server --console-address ":9001"
+      networks:
+        - kafka_minio
+      ports:
+        - "9600:9000"
+        - "9601:9001"
+      environment:
+        MINIO_ROOT_USER: minioadmin
+        MINIO_ROOT_PASSWORD: minioadmin
+        MINIO_VOLUMES: /mnt/data
+      volumes:
+        - ./mnt_data/:/mnt/data
+      healthcheck:
+        test: [ "CMD", "mc", "ready", "local" ]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+    spark-master:
+      image: bitnami/spark:3.5.0
+      container_name: spark-master
+      networks:
+        - kafka_minio
+      ports:
+        - '7077:7077'
+        - '8080:8080'
+      environment:
+        - SPARK_MODE=master
+        - SPARK_RPC_AUTHENTICATION_ENABLED=no
+        - SPARK_RPC_ENCRYPTION_ENABLED=no
+        - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+        - SPARK_SSL_ENABLED=no
+
+
+    spark-worker:
+      image: bitnami/spark:3.5.0
+      container_name: spark-worker
+      networks:
+        - kafka_minio
+      depends_on:
+        - spark-master
+      environment:
+        - SPARK_MODE=worker
+        - SPARK_MASTER_URL=spark://spark-master:7077
+        - SPARK_WORKER_MEMORY=9G
+        - SPARK_WORKER_CORES=8
+        - SPARK_RPC_AUTHENTICATION_ENABLED=no
+        - SPARK_RPC_ENCRYPTION_ENABLED=no
+        - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+        - SPARK_SSL_ENABLED=no
+
+
+networks:
+  kafka_minio:
+    name: kafka_minio
+    driver: "bridge"
