@@ -7,8 +7,8 @@ services:
       command:
         - generator
       environment:
-        - WALLEX_TOPIC=test_wallex
-        - CMP_TOPIC=test_cmp
+        - WALLEX_TOPIC=wallex
+        - CMP_TOPIC=coin_market_cap
         - LOG_LEVEL=DEBUG
         - BROKER_URL=broker:9092
 
@@ -19,8 +19,8 @@ services:
       command:
         - processor
       environment:
-        - WALLEX_TOPIC=test_wallex
-        - CMP_TOPIC=test_cmp
+        - WALLEX_TOPIC=wallex
+        - CMP_TOPIC=coin_market_cap
         - BROKER_URL=broker:9092
         - MINIO_URL=http://minio:9000
         - MINIO_ACC_KEY=HMyMkhaRwyPkp33J272M

@@ -42,8 +42,8 @@ services:
               start_period: 10s
         volumes:
           - ./update_run.sh:/tmp/update_run.sh
-          - /path/docker-data/kraft/:/tmp/kraft-combined-logs/
-        command: "bash -c 'if [ ! -f /tmp/update_run.sh ]; then echo \"ERROR: Did you forget the update_run.sh file that came with this docker-compose.yml file?\" && exit 1 ; else /tmp/update_run.sh && /etc/confluent/docker/run ; fi'"
+#          - /path/docker-data/kraft/:/tmp/kraft-combined-logs/
+        command: "bash -c 'if [ ! -f /tmp/update_run.sh ]; then echo \"ERROR: Did you forget the update_run.sh file that came with this docker-compose.yml file?\" && exit 1 ; else /tmp/update_run.sh && /etc/confluent/docker/run ; fi' && sleep 60 && kafka-topics --bootstrap-server localhost:9093 --create --if-not-exists --topic my-topic-5 --replication-factor 1 --partitions 1"
 
     kafka-ui:
       image: provectuslabs/kafka-ui:latest
